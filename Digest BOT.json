@@ -1,0 +1,215 @@
+{
+  "name": "Daily Morning Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "id": "23373aa5-3188-420c-9f69-c4ad9e328bf0",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.open-meteo.com/v1/forecast",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "latitude",
+              "value": "13.0827"
+            },
+            {
+              "name": "longitude",
+              "value": "80.2707"
+            },
+            {
+              "name": "current",
+              "value": "temperature_2m,apparent_temperature,weather_code,wind_speed_10m"
+            },
+            {
+              "name": "daily",
+              "value": "temperature_2m_max,temperature_2m_min"
+            },
+            {
+              "name": "timezone",
+              "value": "Asia/Kolkata"
+            },
+            {
+              "name": "forecast_days",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4e18a397-499d-4c9e-afad-96d34247de13",
+      "name": "Get Weather",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "4b6dd676-5492-4a59-a413-ae8abaa22877",
+      "name": "Join Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        448,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://hn.algolia.com/api/v1/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "tags",
+              "value": "front_page"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a37e437c-e8c2-4281-9280-3f64b38a193f",
+      "name": "Get News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst wc = {\n  0: ['Clear sky', '☀️'], 1: ['Mainly clear', '🌤️'], 2: ['Partly cloudy', '⛅'],\n  3: ['Overcast', '☁️'], 45: ['Foggy', '🌫️'], 48: ['Foggy', '🌫️'],\n  51: ['Light drizzle', '🌦️'], 53: ['Drizzle', '🌦️'], 55: ['Drizzle', '🌦️'],\n  61: ['Light rain', '🌧️'], 63: ['Rain', '🌧️'], 65: ['Heavy rain', '🌧️'],\n  71: ['Snow', '🌨️'], 80: ['Rain showers', '🌦️'], 81: ['Rain showers', '🌦️'],\n  82: ['Heavy showers', '⛈️'], 95: ['Thunderstorm', '⛈️'], 96: ['Thunderstorm', '⛈️'], 99: ['Thunderstorm', '⛈️'],\n};\n\n// Weather\nconst w = ($('Get Weather').first().json.current) || {};\nconst daily = ($('Get Weather').first().json.daily) || {};\nconst desc = wc[w.weather_code] ? wc[w.weather_code][0] : 'Mixed skies';\nconst temp = w.temperature_2m != null ? Math.round(w.temperature_2m) : '?';\nconst hi = daily.temperature_2m_max ? Math.round(daily.temperature_2m_max[0]) : null;\nconst lo = daily.temperature_2m_min ? Math.round(daily.temperature_2m_min[0]) : null;\nlet weatherLine = `${desc}, ${temp}°C`;\nif (hi != null && lo != null) weatherLine += ` (H:${hi}° L:${lo}°)`;\n\n// News (Hacker News front page)\nconst articles = (($('Get News').first().json.hits) || []).filter(a => a && a.title).slice(0, 4);\nconst newsBlock = articles.length\n  ? articles.map((a, i) => {\n      const link = a.url || `https://news.ycombinator.com/item?id=${a.objectID}`;\n      return `${i + 1}. ${a.title}\\n   ${link}`;\n    }).join('\\n')\n  : 'No headlines available right now.';\n\n// Motivation\nconst quotes = [\n  'Small steps every day add up to big results.',\n  'Make today ridiculously amazing.',\n  'You’ve got everything you need to make today great.',\n  'Progress, not perfection.',\n  'One good thing at a time — you’ve got this!',\n];\nconst quote = quotes[Math.floor(Math.random() * quotes.length)];\n\nconst nowIst = DateTime.now().setZone('Asia/Kolkata');\nconst today = nowIst.toFormat('cccc, LLL d');\nconst hour = nowIst.hour;\nlet greeting, emoji;\nif (hour < 12) { greeting = 'Good morning'; emoji = '🌅'; }\nelse if (hour < 17) { greeting = 'Good afternoon'; emoji = '☀️'; }\nelse if (hour < 21) { greeting = 'Good evening'; emoji = '🌆'; }\nelse { greeting = 'Good night'; emoji = '🌙'; }\nconst timeLabel = nowIst.toFormat('h:mm a');\n\nconst message = [\n  `${greeting}! Here's your digest for ${today}, ${timeLabel} ${emoji}`,\n  '',\n  `🌤️ Weather\\n${weatherLine}`,\n  '',\n  `📰 Top News\\n${newsBlock}`,\n  '',\n  `💡 ${quote}`,\n].join('\\n');\n\nreturn [{ json: { subject: `Your Digest — ${today}, ${timeLabel}`, message } }];\n"
+      },
+      "id": "0fb40ba6-5075-4fbf-abd4-3f2f8e73e45e",
+      "name": "Build Digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "sanjanacmoff@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.message }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "c74c79b3-bbf2-40ff-bcf0-2a271632ce0f",
+      "name": "Send Digest Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        192
+      ],
+      "webhookId": "778ee531-f8ff-4211-8dd4-b2c1ece8eee6",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "DSjKO0iBFXhDxNtC",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Get Weather",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Weather": {
+      "main": [
+        [
+          {
+            "node": "Join Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Join Data": {
+      "main": [
+        [
+          {
+            "node": "Build Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get News": {
+      "main": [
+        [
+          {
+            "node": "Join Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Build Digest": {
+      "main": [
+        [
+          {
+            "node": "Send Digest Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "5c9daaa1-2d9c-43be-8ccb-fedb59fa4cbc",
+  "meta": {
+    "instanceId": "321d9595efe7a7d8dfb70c9839ed0ffc2cbe9d2013ebc8f098f2b56b97eaaa69"
+  },
+  "nodeGroups": [],
+  "id": "xXce544fr3R3ExEm",
+  "tags": []
+}
